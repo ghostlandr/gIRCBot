@@ -58,7 +58,7 @@ class IrcBot(object):
         self._irc.send("PING %s\n" % recipient)
 
     def pong(self):
-        self._irc.send("PONG " + self.nick + "\n")
+        self._irc.send("PONG :Pong\n")
 
     def join(self, channel, password=""):
         """
@@ -112,22 +112,22 @@ class IrcBot(object):
         """
         #TODO: Remove debugging message
         #print data
-        for cmd in data:
-            if data.__len__() >= 3 and cmd == data[3]:
-                if cmd == ":!gtfo":
-                    self.send_data("PART " + data[2] + "\n")
-                if cmd == ":!join":
-                    if data.__len__() >= 5:
-                        self.join(data[4])
-                if cmd == ":!die":
-                    self.quit()
+#        if data.__len__() >= 3 and data == data[3]:
+#            if cmd == ":!gtfo":
+#                self.send_data("PART " + data[2] + "\n")
+#            if cmd == ":!join":
+#                if data.__len__() >= 5:
+#                    self.join(data[4])
+#            if cmd == ":!die":
+#                self.quit()
 
-            if cmd == "PING":
-                self.pong()
+        if data.find("PING") != -1:
+            self.pong()
 
-            if cmd == "ERROR":
-                if data[1] == ":Closing":
-                    self.quit()
+            # This may not be necessary
+#            if cmd == "ERROR":
+#                if data[1] == ":Closing":
+#                    self.quit()
 
     def should_quit(self):
         return self.botQuit
@@ -138,9 +138,12 @@ class IrcBot(object):
         server messages to chat messages and beyond. This method takes in the data as a string from the socket
         and returns it to the calling party.
         """
-        data = self.receive_data(buffer_size)
-        data = data.rstrip("\r\n")
-        return data
+        if self._irc is not None:
+            data = self.receive_data(buffer_size)
+            data = data.rstrip("\r\n")
+            return data
+        else:
+            return None
 
 
 
@@ -152,19 +155,22 @@ name = "Lonely Island Bot"
 
 #====MAIN====#
 bot = IrcBot(server, port, nick, name)
+#data = bot.get_data()
 bot.connect_irc()
+#data = bot.get_data()
 bot.register()
+#data = bot.get_data()
 bot.join("#LonelyIsland")
+#data = bot.get_data()
 
 #====MAIN LOOP====#
 while not bot.should_quit():
     try:
         #Receive data from the irc socket
         data = bot.get_data()
-        #Print data received for debugging
+        #Print data received to the console for monitoring
         print(data)
         #Check to see if there's anything we can do with it :)
-        bot.check_commands(data.split(" "))
+        bot.check_commands(data)
     except IOError:
         bot.quit()
-
