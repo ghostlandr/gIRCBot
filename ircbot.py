@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 ########################################
 #                                      #
+#           gIRCBot                    #
+#        by Graham Holtslander         #
+#                                      #
+#            adapted from:             #
 #          IRC Bot Skeleton            #
 #           by den5e. 2012             #
 #                                      #
@@ -11,6 +15,10 @@ import time
 
 
 class IrcBot(object):
+    #TODO: Class __doc__ notes
+    """
+
+    """
 
     def __init__(self, server, port, nick, full_name):
         self.server = server
@@ -18,7 +26,7 @@ class IrcBot(object):
         self.nick = nick
         self.full_name = full_name
         self.botQuit = False
-        self.irc = None
+        self._irc = None
 
     def register(self):
         """
@@ -32,21 +40,25 @@ class IrcBot(object):
         Command:	NICK
         Parameters:	<nickname> [ <hopcount> ]
         """
-        #TODO: make password generic
-#        self.irc.send("PASS grahamtest")
-        self.irc.send("USER " + self.nick + " " + self.nick +
+        #TODO: make password generic, and make it work how about
+#        self._irc.send("PASS grahamtest")
+        self.send_data("USER " + self.nick + " " + self.nick +
                       " " + self.server + " :" + self.full_name)
-        self.irc.send("NICK " + self.nick)
+        self.send_data("NICK " + self.nick)
 
     def connect_irc(self):
-        self.irc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.irc.connect((self.server, self.port))
+        """
+        Connects to the IRC server specified in the constructor. socket.connect uses a tuple containing the server
+        and port info.
+        """
+        self._irc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._irc.connect((self.server, self.port))
 
     def ping(self, recipient):
-        self.irc.send("PING %s\n" % recipient)
+        self._irc.send("PING %s\n" % recipient)
 
     def pong(self):
-        self.irc.send("PONG " + self.nick + "\n")
+        self._irc.send("PONG " + self.nick + "\n")
 
     def join(self, channel, password=""):
         """
@@ -57,18 +69,27 @@ class IrcBot(object):
 
         Accepts comma separated groups of channels to join and the passwords for those channels
         """
-        self.irc.send("JOIN " + channel + " " + password + "\n")
+        self._irc.send("JOIN " + channel + " " + password + "\n")
 
-    def send_raw_data(self, data):
-        self.irc.send(data)
+    def send_data(self, data):
+        """
+        Sends raw data to the socket.
+        """
+        self._irc.send(data)
+
+    def receive_data(self, buffer_size=4096):
+        """
+        Gets raw data from the socket
+        """
+        return self._irc.recv(buffer_size);
 
     def quit(self, channel=None, msg=None):
         if msg != None:
             self.send_message(channel, msg)
 
-        self.send_raw_data("QUIT" + "\n")
+        self.send_data("QUIT" + "\n")
         self.botQuit = True
-        self.irc.close()
+        self._irc.close()
 
     def send_message(self, receiver, message):
         """
@@ -81,18 +102,19 @@ class IrcBot(object):
          is the nickname of the receiver of the message. <receiver> can also
          be a list of names or channels separated with commas.
         """
-        self.irc.send("PRIVMSG " + receiver + " :" + message)
+        self._irc.send("PRIVMSG " + receiver + " :" + message)
 
     def check_commands(self, data):
         """
         Accepts a list [] of commands sent to it by IRC server, and operates
         accordingly
         """
+        #TODO: Remove debugging message
         print data
         for cmd in data:
             if data.__len__() >= 3 and cmd == data[3]:
                 if cmd == ":!gtfo":
-                    self.send_raw_data("PART " + data[2] + "\n")
+                    self.send_data("PART " + data[2] + "\n")
                 if cmd == ":!join":
                     if data.__len__() >= 5:
                         self.join(data[4])
@@ -112,81 +134,38 @@ class IrcBot(object):
         return self.botQuit
 
     def get_data(self, buffer_size=4096):
-        data = self.irc.recv(buffer_size)
+        """
+        Gets data from the socket. This needs to occur as often as possible, because "data" can be anything from
+        server messages to chat messages and beyond. This method takes in the data as a string from the socket
+        and returns it to the calling party as a list of all the words in the string. Example:
+
+        ERROR :Closing Ping Timeout
+        becomes
+        ['Error', ':Closing', 'Ping', 'Timeout']
+        """
+        data = self.receive_data(buffer_size)
         data = data.rstrip("\r\n")
+        return data.split(" ")
 
-        return data
-
-#====Check for commands====#
-#def CheckCmds(data):
-#    for cmd in data:
-#        if data.__len__() >= 3 and cmd == data[3]:
-#            if cmd == ":!gtfo":
-#                SendRawData("PART "+ data[2] + "\n")
-#            if cmd == ":!join":
-#                if data.__len__() >= 5:
-#                    Join(data[4], "Pickeeeee")
-#            if cmd == ":!die":
-#                Quit()
-#
-#        if cmd == "PING":
-#            SendPing()
-
-#====Register USER and NICK====#
-#def register():
-#    irc.send("USER "+ nick + " " + nick + " " + nick + " :irc bot\n")
-#    irc.send("NICK "+ nick +"\n")
-
-#====Ping,Pong====#
-#def SendPing():
-#    irc.send("PING :Pong\n")
-
-#====Send a message, PRIVMSG====#
-#def SendMessage(chan, message):
-#    irc.send("PRIVMSG "+ chan +" :"+ message +"\n")
-
-#====Join channel,optional: Send a message====#
-#def Join(chan, msg=None):
-#    irc.send("JOIN "+ chan +"\n")
-#    if msg != None:
-#        SendMessage(chan, msg)
-
-#====Send Raw IRC Commands====#        
-#def SendRawData(data):
-#    irc.send(data)
-
-#====Quit====#
-#def Quit(chan=None, msg=None):
-#    if msg != None:
-#        Send(chan, msg)
-#
-#    SendRawData("QUIT" + "\n")
-#    global botQuit
-#    botQuit = True
-
-    
 
 
 #====Connection info====#
-server = "irc.utonet.org"
+server = "_irc.utonet.org"
 port = 6667
 nick = "LonelyBot"
 
+
 #====MAIN====#
-bot = IrcBot("irc.utonet.org", 6667, "LonelyBot", "Lonely Island Bot")
-#irc = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-#irc.connect((server, port))
+bot = IrcBot("_irc.utonet.org", 6667, "LonelyBot", "Lonely Island Bot")
 bot.connect_irc()
 bot.register()
 bot.join("#LonelyIsland")
-#register()
-#Join('#LonelyIsland')
 
 #====MAIN LOOP====#
 while bot.should_quit != True:
-#    data = irc.recv(2048)
-#    data = data.strip('\n\r')
-    data = bot.get_data(4096)
-    bot.check_commands(data.split(" "))
+    data = bot.get_data()
+    bot.check_commands(data)
     print(data)
+    #TODO: Remove this, as once the bot is actually functional it won't be as helpful
+    #TODO:  if it only responds every 10... milliseconds?
     time.sleep(10)
