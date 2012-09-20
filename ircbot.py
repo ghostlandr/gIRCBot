@@ -81,7 +81,7 @@ class IrcBot(object):
         """
         Gets raw data from the socket
         """
-        return self._irc.recv(buffer_size);
+        return self._irc.recv(buffer_size)
 
     def quit(self, channel=None, msg=None):
         if msg != None:
@@ -89,6 +89,7 @@ class IrcBot(object):
 
         self.send_data("QUIT" + "\n")
         self.botQuit = True
+        # close connection
         self._irc.close()
 
     def send_message(self, receiver, message):
@@ -110,7 +111,7 @@ class IrcBot(object):
         accordingly
         """
         #TODO: Remove debugging message
-        print data
+        #print data
         for cmd in data:
             if data.__len__() >= 3 and cmd == data[3]:
                 if cmd == ":!gtfo":
@@ -128,8 +129,6 @@ class IrcBot(object):
                 if data[1] == ":Closing":
                     self.quit()
 
-
-
     def should_quit(self):
         return self.botQuit
 
@@ -137,35 +136,35 @@ class IrcBot(object):
         """
         Gets data from the socket. This needs to occur as often as possible, because "data" can be anything from
         server messages to chat messages and beyond. This method takes in the data as a string from the socket
-        and returns it to the calling party as a list of all the words in the string. Example:
-
-        ERROR :Closing Ping Timeout
-        becomes
-        ['Error', ':Closing', 'Ping', 'Timeout']
+        and returns it to the calling party.
         """
         data = self.receive_data(buffer_size)
         data = data.rstrip("\r\n")
-        return data.split(" ")
+        return data
 
 
 
 #====Connection info====#
-server = "_irc.utonet.org"
+server = "irc.utonet.org"
 port = 6667
 nick = "LonelyBot"
-
+name = "Lonely Island Bot"
 
 #====MAIN====#
-bot = IrcBot("_irc.utonet.org", 6667, "LonelyBot", "Lonely Island Bot")
+bot = IrcBot(server, port, nick, name)
 bot.connect_irc()
 bot.register()
 bot.join("#LonelyIsland")
 
 #====MAIN LOOP====#
-while bot.should_quit != True:
-    data = bot.get_data()
-    bot.check_commands(data)
-    print(data)
-    #TODO: Remove this, as once the bot is actually functional it won't be as helpful
-    #TODO:  if it only responds every 10... milliseconds?
-    time.sleep(10)
+while not bot.should_quit():
+    try:
+        #Receive data from the irc socket
+        data = bot.get_data()
+        #Print data received for debugging
+        print(data)
+        #Check to see if there's anything we can do with it :)
+        bot.check_commands(data.split(" "))
+    except IOError:
+        bot.quit()
+
