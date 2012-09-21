@@ -127,7 +127,7 @@ class IrcBot(object):
             print "Error, disconnecting"
             self.quit()
         elif data[0:4] == "PING":
-            self.send_data( "PONG " + data.split() [ 1 ] + "\r\n" )
+            self.send_data( "PONG " + data.split()[1] + "\r\n" )
             # This may not be necessary
 #            if cmd == "ERROR":
 #                if data[1] == ":Closing":
@@ -144,7 +144,7 @@ class IrcBot(object):
         """
         if self._irc is not None:
             data = self.receive_data(buffer_size)
-            data = data.rstrip("\r\n")
+            data = data.rstrip('\r\n')
             return data
         else:
             return None
@@ -166,17 +166,17 @@ bot.register()
 #data = bot.get_data()
 bot.join("#LonelyIsland")
 #data = bot.get_data()
-
+data = []
 #====MAIN LOOP====#
 while not bot.should_quit():
     #Receive data from the irc socket
-    data = bot.get_data(2048)
+    data.append(bot.get_data(1024))
     #if length is 0 we got disconnected
     if data.__len__ == 0:
         break
     #Print data received to the console for monitoring
-    print(data)
+    print data
     #Check to see if there's anything we can do with it :)
-    bot.check_commands(data)
+    bot.check_commands(data[-1])
 
 bot.quit()
