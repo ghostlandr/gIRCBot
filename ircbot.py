@@ -55,10 +55,14 @@ class IrcBot(object):
         self.__irc.connect((self.server, self.port))
 
     def ping(self, recipient):
-        self.__irc.send("PING %s\r\n" % recipient)
+        ping_send = "PING %s" % recipient
+        self.__irc.send(ping_send + "\r\n")
+        print ping_send
 
     def pong(self, target=":Pong"):
-        self.__irc.send("PONG %s\r\n" % target)
+        pong_send = "PONG %s" % target
+        self.__irc.send(pong_send + "\r\n")
+        print pong_send
 
     def join(self, channel, password=""):
         """
@@ -88,13 +92,15 @@ class IrcBot(object):
         return data
 
     def quit(self, channel=None, msg=None):
-        if msg != None:
-            self.send_message(channel, msg)
-
-        self.send_data("QUIT" + "\r\n")
-        self.botQuit = True
+        if msg is not None and channel is not None:
+            self.send_data("QUIT " + channel + " :" + msg + "\r\n")
+        elif channel is not None:
+            self.send_data("QUIT " + channel + "\r\n")
+        else:
+            self.send_data("QUIT" + "\r\n")
+            self.botQuit = True
         # close connection
-        self.__irc.close()
+            self.__irc.close()
 
     def send_message(self, receiver, message):
         """
@@ -115,7 +121,6 @@ class IrcBot(object):
         accordingly
         """
         #TODO: Remove debugging message
-        print data
 #        if data.__len__() >= 3 and data == data[3]:
 #            if cmd == ":!gtfo":
 #                self.send_data("PART " + data[2] + "\n")
@@ -124,14 +129,13 @@ class IrcBot(object):
 #                    self.join(data[4])
 #            if cmd == ":!die":
 #                self.quit()
-
-        if data.find("PING") != -1:
-            self.pong()
-        elif data.find("ERROR") != -1:
-            print "Error, disconnecting"
-            self.quit()
-        elif data[0:4] == "PING":
-            self.send_data( "PONG " + data.split()[1] + "\r\n" )
+        for line in data.split('\n'):
+            if line.find("ERROR") != -1:
+                print "Error, disconnecting"
+                self.quit()
+            elif line[0:4] == "PING":
+                self.send_data( "PONG " + line.split()[1] + "\r\n" )
+            print "Out of commands! Chillin."
             # This may not be necessary
 #            if cmd == "ERROR":
 #                if data[1] == ":Closing":
@@ -170,7 +174,7 @@ while not bot.should_quit():
     if data.__len__ == 0:
         break
     #Print data received to the console for monitoring
-#    print data
+    print data
     #Check to see if there's anything we can do with it :)
     bot.check_commands(data)
 
