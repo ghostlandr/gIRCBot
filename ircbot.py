@@ -57,8 +57,8 @@ class IrcBot(object):
     def ping(self, recipient):
         self._irc.send("PING %s\n" % recipient)
 
-    def pong(self):
-        self._irc.send("PONG :Pong\n")
+    def pong(self, target=":Pong"):
+        self._irc.send("PONG %s\n" % target)
 
     def join(self, channel, password=""):
         """
@@ -107,7 +107,7 @@ class IrcBot(object):
 
     def check_commands(self, data):
         """
-        Accepts a list [] of commands sent to it by IRC server, and operates
+        Accepts a string of commands sent to it by IRC server, and operates
         accordingly
         """
         #TODO: Remove debugging message
@@ -123,7 +123,11 @@ class IrcBot(object):
 
         if data.find("PING") != -1:
             self.pong()
-
+        elif data.find("ERROR") != -1:
+            print "Error, disconnecting"
+            self.quit()
+        elif data[0:4] == "PING":
+            self.send_data( "PONG " + data.split() [ 1 ] + "\r\n" )
             # This may not be necessary
 #            if cmd == "ERROR":
 #                if data[1] == ":Closing":
@@ -165,12 +169,14 @@ bot.join("#LonelyIsland")
 
 #====MAIN LOOP====#
 while not bot.should_quit():
-    try:
-        #Receive data from the irc socket
-        data = bot.get_data()
-        #Print data received to the console for monitoring
-        print(data)
-        #Check to see if there's anything we can do with it :)
-        bot.check_commands(data)
-    except IOError:
-        bot.quit()
+    #Receive data from the irc socket
+    data = bot.get_data(2048)
+    #if length is 0 we got disconnected
+    if data.__len__ == 0:
+        break
+    #Print data received to the console for monitoring
+    print(data)
+    #Check to see if there's anything we can do with it :)
+    bot.check_commands(data)
+
+bot.quit()
