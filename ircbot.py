@@ -115,7 +115,7 @@ class IrcBot(object):
         accordingly
         """
         #TODO: Remove debugging message
-        #print data
+        print data
 #        if data.__len__() >= 3 and data == data[3]:
 #            if cmd == ":!gtfo":
 #                self.send_data("PART " + data[2] + "\n")
@@ -170,7 +170,7 @@ while not bot.should_quit():
     if data.__len__ == 0:
         break
     #Print data received to the console for monitoring
-    print data
+#    print data
     #Check to see if there's anything we can do with it :)
     bot.check_commands(data)
 
