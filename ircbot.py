@@ -17,16 +17,31 @@ import time
 class IrcBot(object):
     #TODO: Class __doc__ notes
     """
-
+    IRCBot that can connect to an IRC server using an address and port.
+    The IRCBot has many methods and variables to help you out, discussed in their respective doc notes
     """
 
-    def __init__(self, server, port, nick, full_name):
+    def __init__(self, server, port, nick, full_name, admin_nick):
+        """
+        server - the server to connect to (ex: irc.utonet.org)
+        port - the port of the server to join (almost always 6667)
+        nick - the nick the bot will have, and what it can be addressed by
+        master - a user (or users) who has "admin" control over the bot
+        full_name - only used for the server join process really
+        botQuit - whether or not the bot should quit/leave the server
+        __irc - the socket that is connected to the server - private
+        __channels - a list containing all the channels the bot is connected to - private
+        __history - a list of every line that the bot has read in from the socket
+        """
         self.server = server
         self.port = port
         self.nick = nick
+        self.master = admin_nick
         self.full_name = full_name
         self.botQuit = False
         self.__irc = None
+        self.__channels = []
+        self.__history = []
 
     def register(self):
         """
@@ -40,8 +55,6 @@ class IrcBot(object):
         Command:	NICK
         Parameters:	<nickname> [ <hopcount> ]
         """
-        #TODO: make password generic, and make it work how about!
-#        self.__irc.send("PASS grahamtest")
         self.send_data("USER " + self.nick + " " + self.nick +
                       " " + self.server + " :" + self.full_name + "\r\n")
         self.send_data("NICK " + self.nick + "\r\n")
@@ -55,14 +68,20 @@ class IrcBot(object):
         self.__irc.connect((self.server, self.port))
 
     def ping(self, recipient):
+        """
+        Sends a ping to the recipient
+        """
         ping_send = "PING %s" % recipient
-        self.__irc.send(ping_send + "\r\n")
         print ping_send
+        self.__irc.send(ping_send + "\r\n")
 
     def pong(self, target=":Pong"):
+        """
+        Responds to a ping
+        """
         pong_send = "PONG %s" % target
-        self.__irc.send(pong_send + "\r\n")
         print pong_send
+        self.__irc.send(pong_send + "\r\n")
 
     def join(self, channel, password=""):
         """
@@ -73,6 +92,7 @@ class IrcBot(object):
 
         Accepts comma separated groups of channels to join and the passwords for those channels
         """
+        self.__channels.append(channel)
         self.__irc.send("JOIN " + channel + " " + password + "\r\n")
 
     def send_data(self, data):
@@ -92,6 +112,10 @@ class IrcBot(object):
         return data
 
     def quit(self, channel=None, msg=None):
+        """
+        This method can accomplish a few things. 1) Quit a channel and give a message as to why you're quitting,
+        2) Quit a channel without a message, and 3) quit the server altogether
+        """
         if msg is not None and channel is not None:
             self.send_data("QUIT " + channel + " :" + msg + "\r\n")
         elif channel is not None:
@@ -115,6 +139,9 @@ class IrcBot(object):
         """
         self.__irc.send("PRIVMSG " + receiver + " :" + message)
 
+    def is_admin(self, user_nick):
+        return user_nick in self.master
+
     def check_commands(self, data):
         """
         Accepts a string of commands sent to it by IRC server, and operates
@@ -129,17 +156,27 @@ class IrcBot(object):
 #                    self.join(data[4])
 #            if cmd == ":!die":
 #                self.quit()
+        nothings = 0
+        self.__history.append(data)
+        print data
         for line in data.split('\n'):
             if line.find("ERROR") != -1:
                 print "Error, disconnecting"
                 self.quit()
             elif line[0:4] == "PING":
-                self.send_data( "PONG " + line.split()[1] + "\r\n" )
-            print "Out of commands! Chillin."
-            # This may not be necessary
-#            if cmd == "ERROR":
-#                if data[1] == ":Closing":
-#                    self.quit()
+                self.pong(line.split()[1])
+            elif line.find("!quit") != -1:
+                self.quit()
+            else:
+                nothings += 1
+
+        if nothings is not 0:
+            print "Nothing to do with %s lines" % nothings
+
+    def search_history(self, query):
+        for line in self.__history:
+            if line.find(query) != -1:
+                return True
 
     def should_quit(self):
         return self.botQuit
@@ -154,28 +191,50 @@ class IrcBot(object):
         return data.strip('\r\n')
 
 
-#====Connection info====#
+# Set up your connection
 server = "irc.utonet.org"
 port = 6667
+buffer_size = 2048
+
+# Set up your bot
 nick = "LonelyBot"
 name = "Lonely Island Bot"
+# this is important because you don't want any random to be sending some of the commands to the bot
+# this is a list of names (eventually)
+admin_nick = ["Tenotitwan", "TenotitwanWork"]
+# if more than one person should have admin powers, make the above line look like this:
+chat_room = "#LonelyIsland"
+#chat_room2 = "#LonelyIslandAttackers"
+# etc.
 
-#====MAIN====#
-bot = IrcBot(server, port, nick, name)
+# Create new instance of bot, connect to designated server, grab some data
+bot = IrcBot(server, port, nick, name, admin_nick)
 bot.connect_irc()
 bot.register()
-#bot.join("#LonelyIsland")
+data = bot.get_data(buffer_size)
+
+# Get connected to the server
+#TODO: Find a way to make this a lot better
+while bot.search_history("Welcome to UtoNet") is not True:
+    bot.check_commands(data)
+    data = bot.get_data(buffer_size)
+
+# Connect to your chat room(s)
+bot.join(chat_room)
+# if you have more rooms to join:
+print "Getting here?"
+#bot.join(chat_room2)
+# etc.
 
 #====MAIN LOOP====#
-while not bot.should_quit():
+while 1:
     #Receive data from the irc socket
-    data = bot.get_data(2048)
+    data = bot.get_data(buffer_size)
     #if length is 0 we got disconnected
     if data.__len__ == 0:
         break
-    #Print data received to the console for monitoring
-    print data
     #Check to see if there's anything we can do with it :)
     bot.check_commands(data)
 
+# Disconnect for good
 bot.quit()
