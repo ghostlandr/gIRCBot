@@ -140,33 +140,40 @@ class IrcBot(object):
         self.__irc.send("PRIVMSG " + receiver + " :" + message)
 
     def is_admin(self, user_nick):
+        """
+        Checks if the nick passed in is on the "masters" list. Some commands require
+        a nickname to have "administrative" privileges
+        """
         return user_nick in self.master
+
+    def _dialogue(self, line):
+        """
+        Accepts a line from the chat that contains PRIVMSG. This means that there should
+        be some response from the bot to the people in the server or to a specific person.
+        This method contains a lot of logic, thus it is broken out from check_commands
+        """
+        if line.split(' ')[2] in self.__channels:
+            # we're in a channel, start checking for commands
+            if line.find("!quit"):
+
 
     def check_commands(self, data):
         """
         Accepts a string of commands sent to it by IRC server, and operates
         accordingly
         """
-        #TODO: Remove debugging message
-#        if data.__len__() >= 3 and data == data[3]:
-#            if cmd == ":!gtfo":
-#                self.send_data("PART " + data[2] + "\n")
-#            if cmd == ":!join":
-#                if data.__len__() >= 5:
-#                    self.join(data[4])
-#            if cmd == ":!die":
-#                self.quit()
         nothings = 0
         self.__history.append(data)
         print data
         for line in data.split('\n'):
-            if line.find("ERROR") != -1:
+            if "ERROR" in line:
                 print "Error, disconnecting"
+                #TODO: think of some reconnection logic here
                 self.quit()
+            elif "PRIVMSG" in line:
+                self._dialogue(line)
             elif line[0:4] == "PING":
                 self.pong(line.split()[1])
-            elif line.find("!quit") != -1:
-                self.quit()
             else:
                 nothings += 1
 
