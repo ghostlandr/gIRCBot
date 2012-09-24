@@ -203,8 +203,10 @@ class IrcBot(object):
                 #If they are addressing the bot, try to do something
                 for greeting in self.__greetings:
                     if greeting in line:
+                        #TODO: Randomize the greetings
                         self.send_message(chat_room, "Hello to you to, %s" % chat_nick)
                         break
+                #TODO: Add farewells!!
 
     def do_math(self, line):
         """
