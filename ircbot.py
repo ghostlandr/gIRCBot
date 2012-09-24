@@ -11,8 +11,6 @@
 ########################################
 
 import socket
-import time
-
 
 class IrcBot(object):
     #TODO: Class __doc__ notes
@@ -30,7 +28,7 @@ class IrcBot(object):
         full_name - only used for the server join process really
         botQuit - whether or not the bot should quit/leave the server
         __irc - the socket that is connected to the server - private
-        __channels - a list containing all the channels the bot is connected to - private
+        __channels - a list containing all the channels the bot is (or will be) connected to - private
         __history - a list of every line that the bot has read in from the socket
         """
         self.server = server
@@ -42,6 +40,9 @@ class IrcBot(object):
         self.__irc = None
         self.__channels = []
         self.__history = []
+
+    def channel_list(self):
+        return self.__channels
 
     def register(self):
         """
@@ -92,14 +93,15 @@ class IrcBot(object):
 
         Accepts comma separated groups of channels to join and the passwords for those channels
         """
-        self.__channels.append(channel)
+        self.__channels.append(channel.lower())
         self.__irc.send("JOIN " + channel + " " + password + "\r\n")
 
     def send_data(self, data):
         """
         Sends raw data to the socket.
         """
-        self.__irc.send(data)
+        if data is not None:
+            self.__irc.send(data)
 
     def __receive_data(self, buffer_size=4096):
         """
@@ -137,7 +139,7 @@ class IrcBot(object):
          is the nickname of the receiver of the message. <receiver> can also
          be a list of names or channels separated with commas.
         """
-        self.__irc.send("PRIVMSG " + receiver + " :" + message)
+        self.__irc.send("PRIVMSG " + receiver + " :" + message + "\r\n")
 
     def is_admin(self, user_nick):
         """
@@ -152,10 +154,22 @@ class IrcBot(object):
         be some response from the bot to the people in the server or to a specific person.
         This method contains a lot of logic, thus it is broken out from check_commands
         """
+        chat_nick = line[1:line.find("!")]
+        reply_to = line.split(" ")[2]
         if line.split(' ')[2] in self.__channels:
             # we're in a channel, start checking for commands
-            if line.find("!quit"):
+            if "!quit" in line:
+                if chat_nick in self.master:
+                    self.quit()
+                else:
+                    self.deny_command(reply_to, chat_nick)
 
+    def deny_command(self, reply_to, chat_nick):
+        """
+        When someone who is not the bots master attempts to run what is considered an "admin commmand" (example:
+        having the bot quit), it will deny that command.
+        """
+        self.send_message(reply_to, "You're not my master, %s!" % chat_nick)
 
     def check_commands(self, data):
         """
@@ -197,7 +211,6 @@ class IrcBot(object):
         data = self.__receive_data(buffer_size)
         return data.strip('\r\n')
 
-
 # Set up your connection
 server = "irc.utonet.org"
 port = 6667
@@ -207,31 +220,26 @@ buffer_size = 2048
 nick = "LonelyBot"
 name = "Lonely Island Bot"
 # this is important because you don't want any random to be sending some of the commands to the bot
-# this is a list of names (eventually)
-admin_nick = ["Tenotitwan", "TenotitwanWork"]
-# if more than one person should have admin powers, make the above line look like this:
-chat_room = "#LonelyIsland"
-#chat_room2 = "#LonelyIslandAttackers"
-# etc.
+# this is a list of names
+admin_nicks = ["Tenotitwan", "TenotitwanWork"]
+# a list of chat rooms to join
+chat_rooms = ["#LonelyIsland"]
 
 # Create new instance of bot, connect to designated server, grab some data
-bot = IrcBot(server, port, nick, name, admin_nick)
+bot = IrcBot(server, port, nick, name, admin_nicks)
 bot.connect_irc()
 bot.register()
 data = bot.get_data(buffer_size)
 
 # Get connected to the server
 #TODO: Find a way to make this a lot better
-while bot.search_history("Welcome to UtoNet") is not True:
+while bot.search_history("Logon News") is not True:
     bot.check_commands(data)
     data = bot.get_data(buffer_size)
 
 # Connect to your chat room(s)
-bot.join(chat_room)
-# if you have more rooms to join:
-print "Getting here?"
-#bot.join(chat_room2)
-# etc.
+for room in chat_rooms:
+    bot.join(room)
 
 #====MAIN LOOP====#
 while 1:
@@ -240,7 +248,7 @@ while 1:
     #if length is 0 we got disconnected
     if data.__len__ == 0:
         break
-    #Check to see if there's anything we can do with it :)
+        #Check to see if there's anything we can do with it :)
     bot.check_commands(data)
 
 # Disconnect for good
