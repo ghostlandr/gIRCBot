@@ -199,7 +199,7 @@ class IrcBot(object):
                     self.send_message(chat_room, "Greetings all, I am here!")
                 else:
                     self.send_message(chat_room, "Greetings %s and welcome to the %s channel!" % (chat_nick, chat_room[1:]))
-            elif "LonelyBot".lower() in line.lower():
+            elif self.nick.lower() in line.lower():
                 #If they are addressing the bot, try to do something
                 for greeting in self.__greetings:
                     if greeting in line:
