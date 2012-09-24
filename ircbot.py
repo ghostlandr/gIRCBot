@@ -10,7 +10,7 @@
 #                                      #
 ########################################
 
-import socket
+import socket, time
 
 class IrcBot(object):
     #TODO: Class __doc__ notes
@@ -40,6 +40,7 @@ class IrcBot(object):
         self.__irc = None
         self.__channels = []
         self.__history = []
+        self.__greetings = ["hello", "hi", "sup", "g'day", "morning", "evening", "mornin'", "evenin'", "afternoon"]
 
     def channel_list(self):
         return self.__channels
@@ -57,8 +58,8 @@ class IrcBot(object):
         Parameters:	<nickname> [ <hopcount> ]
         """
         self.send_data("USER " + self.nick + " " + self.nick +
-                      " " + self.server + " :" + self.full_name + "\r\n")
-        self.send_data("NICK " + self.nick + "\r\n")
+                      " " + self.server + " :" + self.full_name)
+        self.send_data("NICK " + self.nick)
 
     def connect_irc(self):
         """
@@ -74,7 +75,7 @@ class IrcBot(object):
         """
         ping_send = "PING %s" % recipient
         print ping_send
-        self.__irc.send(ping_send + "\r\n")
+        self.send_data(ping_send)
 
     def pong(self, target=":Pong"):
         """
@@ -82,7 +83,7 @@ class IrcBot(object):
         """
         pong_send = "PONG %s" % target
         print pong_send
-        self.__irc.send(pong_send + "\r\n")
+        self.send_data(pong_send)
 
     def join(self, channel, password=""):
         """
@@ -94,14 +95,14 @@ class IrcBot(object):
         Accepts comma separated groups of channels to join and the passwords for those channels
         """
         self.__channels.append(channel.lower())
-        self.__irc.send("JOIN " + channel + " " + password + "\r\n")
+        self.__irc.send("JOIN " + channel + " " + password)
 
     def send_data(self, data):
         """
-        Sends raw data to the socket.
+        Sends raw - though properly terminated - data to the socket.
         """
         if data is not None:
-            self.__irc.send(data)
+            self.__irc.send(data + "\r\n")
 
     def __receive_data(self, buffer_size=4096):
         """
@@ -119,11 +120,11 @@ class IrcBot(object):
         2) Quit a channel without a message, and 3) quit the server altogether
         """
         if msg is not None and channel is not None:
-            self.send_data("QUIT " + channel + " :" + msg + "\r\n")
+            self.send_data("QUIT " + channel + " :" + msg)
         elif channel is not None:
-            self.send_data("QUIT " + channel + "\r\n")
+            self.send_data("QUIT " + channel)
         else:
-            self.send_data("QUIT" + "\r\n")
+            self.send_data("QUIT")
             self.botQuit = True
         # close connection
             self.__irc.close()
@@ -139,7 +140,7 @@ class IrcBot(object):
          is the nickname of the receiver of the message. <receiver> can also
          be a list of names or channels separated with commas.
         """
-        self.__irc.send("PRIVMSG " + receiver + " :" + message + "\r\n")
+        self.send_data("PRIVMSG " + receiver + " :" + message)
 
     def is_admin(self, user_nick):
         """
@@ -148,15 +149,17 @@ class IrcBot(object):
         """
         return user_nick in self.master
 
+    def _get_sender_nick(self, line):
+        return line[1:line.find("!")]
+
     def _dialogue(self, line):
         """
         Accepts a line from the chat that contains PRIVMSG. This means that there should
         be some response from the bot to the people in the server or to a specific person.
         This method contains a lot of logic, thus it is broken out from check_commands
         """
-        chat_nick = line[1:line.find("!")]
+        chat_nick = self._get_sender_nick(line)
         chat_room = line.split(' ')[2]
-        reply_to = line.split(" ")[2]
 
         if "#" not in chat_room:
             # private messaging, check what they want us to do
@@ -169,7 +172,7 @@ class IrcBot(object):
                     new_admin = line.split(' ')[4]
                     if new_admin not in self.master:
                         self.master.append(new_admin)
-                        self.send_message(chat_nick, "%s is now and administrator" % new_admin)
+                        self.send_message(chat_nick, "%s is now an administrator" % new_admin)
                     else:
                         self.send_message(chat_nick, "%s is already an admin!" % new_admin)
             else:
@@ -177,16 +180,58 @@ class IrcBot(object):
                 pass #not sure what to do here yet
         elif chat_room in self.__channels:
             # we're in a channel, start checking for commands
-            if "!quit" in line:
+            if ":!gtfo" in line:
                 if chat_nick in self.master:
-                    self.send_message(chat_room, "Yes my master, I will leave %s" % chat_room)
-                    self.quit()
+                    self.send_message(chat_room, "Yes %s, I will leave %s" % (chat_nick, chat_room))
+                    self.quit(chat_room, "I've been ordered out!")
                 else:
-                    self.deny_command(reply_to, chat_nick)
+                    self.deny_command(chat_room, chat_nick)
+            elif ":!quit" in line:
+                if chat_nick in self.master:
+                    self.send_message(chat_room, "Yes %s, I will leave %s" % (chat_nick, chat_room))
+                    self.quit(chat_room, "I've been ordered out!")
+                else:
+                    self.deny_command(chat_room, chat_nick)
+            elif ":!math" in line:
+                self.send_message(chat_room, self.do_math(line))
+            elif line.split(" ")[1] is "JOIN":
+                if chat_nick is self.nick:
+                    self.send_message(chat_room, "Greetings all, I am here!")
+                else:
+                    self.send_message(chat_room, "Greetings %s and welcome to the %s channel!" % (chat_nick, chat_room[1:]))
+            elif "LonelyBot".lower() in line.lower():
+                #If they are addressing the bot, try to do something
+                for greeting in self.__greetings:
+                    if greeting in line:
+                        self.send_message(chat_room, "Hello to you to, %s" % chat_nick)
+                        break
+
+    def do_math(self, line):
+        """
+        do_math expects a command like !math [operand] [operator] [operand], ex: !math 2 * 2
+        """
+        chat_nick = self._get_sender_nick(line)
+        operand1 = float(line.split(" ")[4])
+        operator = line.split(" ")[5]
+        operand2 = float(line.split(" ")[6])
+        result = 0
+        if operator is "*" or operator is "x":
+            result = operand1 * operand2
+        elif operator is "/" or operator is "\\":
+            if operand2 is not 0:
+                result = operand1 / operand2
+            else:
+                return "Ha, as if I'm going to divide by zero for you, %s!" % chat_nick
+        elif operator is "+":
+            result = operand1 + operand2
+        elif operator is "-":
+            result = operand1 - operand2
+
+        return "%s %s %s = %s" % (operand1, operator, operand2, result)
 
     def deny_command(self, reply_to, chat_nick):
         """
-        When someone who is not the bots master attempts to run what is considered an "admin commmand" (example:
+        When someone who is not the bots master attempts to run what is considered an "admin command" (example:
         having the bot quit), it will deny that command.
         """
         self.send_message(reply_to, "You're not my master, %s!" % chat_nick)
@@ -199,12 +244,12 @@ class IrcBot(object):
         nothings = 0
         self.__history.append(data)
         print data
-        for line in data.split('\n'):
+        for line in data.split('\r\n'):
             if "ERROR" in line:
                 print "Error, disconnecting"
                 #TODO: think of some reconnection logic here
                 self.quit()
-            elif "PRIVMSG" in line:
+            elif "PRIVMSG" in line or "JOIN" in line or "PART" in line:
                 # this is a message from a human, process it in a separate method to save space here
                 self._dialogue(line)
             elif line[0:4] == "PING":
@@ -235,7 +280,7 @@ class IrcBot(object):
 # Set up your connection
 server = "irc.utonet.org"
 port = 6667
-buffer_size = 2048
+buffer_size = 4096
 
 # Set up your bot
 nick = "LonelyBot"
@@ -251,12 +296,15 @@ bot = IrcBot(server, port, nick, name, admin_nicks)
 bot.connect_irc()
 bot.register()
 data = bot.get_data(buffer_size)
+bot.check_commands(data)
 
 # Get connected to the server
 #TODO: Find a way to make this a lot better
 while bot.search_history("Logon News") is not True:
-    bot.check_commands(data)
     data = bot.get_data(buffer_size)
+    bot.check_commands(data)
+
+#time.sleep(20)
 
 # Connect to your chat room(s)
 for room in chat_rooms:
