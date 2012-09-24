@@ -155,11 +155,31 @@ class IrcBot(object):
         This method contains a lot of logic, thus it is broken out from check_commands
         """
         chat_nick = line[1:line.find("!")]
+        chat_room = line.split(' ')[2]
         reply_to = line.split(" ")[2]
-        if line.split(' ')[2] in self.__channels:
+
+        if "#" not in chat_room:
+            # private messaging, check what they want us to do
+            if chat_nick in self.master:
+                # follow more accordingly to admins
+                if "!admin_list" in line:
+                    self.send_message(chat_nick, "Admins are: %s" % " / ".join(self.master))
+                elif "!add_admin" in line:
+                    # this commands syntax: !add_admin [admin_nick]
+                    new_admin = line.split(' ')[4]
+                    if new_admin not in self.master:
+                        self.master.append(new_admin)
+                        self.send_message(chat_nick, "%s is now and administrator" % new_admin)
+                    else:
+                        self.send_message(chat_nick, "%s is already an admin!" % new_admin)
+            else:
+                # regular person who is PMing us
+                pass #not sure what to do here yet
+        elif chat_room in self.__channels:
             # we're in a channel, start checking for commands
             if "!quit" in line:
                 if chat_nick in self.master:
+                    self.send_message(chat_room, "Yes my master, I will leave %s" % chat_room)
                     self.quit()
                 else:
                     self.deny_command(reply_to, chat_nick)
@@ -185,6 +205,7 @@ class IrcBot(object):
                 #TODO: think of some reconnection logic here
                 self.quit()
             elif "PRIVMSG" in line:
+                # this is a message from a human, process it in a separate method to save space here
                 self._dialogue(line)
             elif line[0:4] == "PING":
                 self.pong(line.split()[1])
@@ -196,7 +217,7 @@ class IrcBot(object):
 
     def search_history(self, query):
         for line in self.__history:
-            if line.find(query) != -1:
+            if query in line:
                 return True
 
     def should_quit(self):
