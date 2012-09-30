@@ -10,7 +10,8 @@
 #                                      #
 ########################################
 
-import socket, time
+import socket
+from random import randint
 
 class IrcBot(object):
     #TODO: Class __doc__ notes
@@ -222,7 +223,8 @@ class IrcBot(object):
                 for greeting in self.__greetings:
                     if greeting.lower() in line.lower():
                         #TODO: Randomize the greetings
-                        self.send_message(chat_room, "Hello to you too, %s" % chat_nick)
+                        self.send_message(chat_room, "%s, %s" %
+                                                     (self.__greetings[randint(0, self.__greetings.__len__)], chat_nick))
                         break
                 #TODO: Add farewells!!
 
