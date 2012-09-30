@@ -298,48 +298,50 @@ class IrcBot(object):
             data += self.__receive_data(buffer_size)
         return data.strip('\r\n')
 
-# Set up your connection
-server = "irc.utonet.org"
-port = 6667
-buffer_size = 4096
 
-# Set up your bot
-nick = "LonelyBot"
-name = "Lonely Island Bot"
-# this is important because you don't want any random to be sending some of the commands to the bot
-# this is a list of names
-admin_nicks = ["Tenotitwan", "TenotitwanWork"]
-# a list of chat rooms to join
-chat_rooms = ["#LonelyIsland"]
+if __name__ == "__main__":
+    # Set up your connection
+    server = "irc.utonet.org"
+    port = 6667
+    buffer_size = 4096
 
-# Create new instance of bot, connect to designated server, grab some data
-bot = IrcBot(server, port, nick, name, admin_nicks)
-bot.connect_irc()
-bot.register()
-data = bot.get_data(buffer_size)
-bot.check_commands(data)
+    # Set up your bot
+    nick = "LonelyBot"
+    name = "Lonely Island Bot"
+    # this is important because you don't want any random to be sending some of the commands to the bot
+    # this is a list of names
+    admin_nicks = ["Tenotitwan", "TenotitwanWork"]
+    # a list of chat rooms to join
+    chat_rooms = ["#LonelyIsland"]
 
-# Get connected to the server
-#TODO: Find a way to make this a lot better
-while bot.search_history("Logon News") is not True:
+    # Create new instance of bot, connect to designated server, grab some data
+    bot = IrcBot(server, port, nick, name, admin_nicks)
+    bot.connect_irc()
+    bot.register()
     data = bot.get_data(buffer_size)
     bot.check_commands(data)
 
-#time.sleep(20)
+    # Get connected to the server
+    #TODO: Find a way to make this a lot better
+    while bot.search_history("Logon News") is not True:
+        data = bot.get_data(buffer_size)
+        bot.check_commands(data)
 
-# Connect to your chat room(s)
-for room in chat_rooms:
-    bot.join(room)
+    #time.sleep(20)
 
-#====MAIN LOOP====#
-while 1:
-    #Receive data from the irc socket
-    data = bot.get_data(buffer_size)
-    #if length is 0 we got disconnected
-    if len(data) == 0:
-        break
-    #Check to see if there's anything we can do with it :)
-    bot.check_commands(data)
+    # Connect to your chat room(s)
+    for room in chat_rooms:
+        bot.join(room)
 
-# Disconnect for good
-bot.quit()
+    #====MAIN LOOP====#
+    while 1:
+        #Receive data from the irc socket
+        data = bot.get_data(buffer_size)
+        #if length is 0 we got disconnected
+        if len(data) == 0:
+            break
+        #Check to see if there's anything we can do with it :)
+        bot.check_commands(data)
+
+    # Disconnect for good
+    bot.quit()

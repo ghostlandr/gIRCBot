@@ -1,5 +1,5 @@
 
-
+import time
 from ircbot import IrcBot
 
 # Set up your connection
@@ -19,17 +19,17 @@ name = raw_input("What is its full name? ")
 print "Name some administrators (type 'done' to finish):"
 admin_add = raw_input("> ")
 admin_nicks = []
-while admin_add is not "done":
+while admin_add != "done":
     admin_nicks.append(admin_add)
-    admin_add = raw_input("Alright, any more?\n>")
+    admin_add = raw_input("Alright, any more?\n> ")
 
 # a list of chat rooms to join
 print "Name some chat rooms to join (including #; type 'done' to finish):"
 room_add = raw_input("> ")
 chat_rooms = []
-while room_add is not "done":
+while room_add != "done":
     chat_rooms.append(room_add)
-    room_add = raw_input("Alright, any more?\n>")
+    room_add = raw_input("Alright, any more?\n> ")
 
 # Create new instance of bot, connect to designated server, grab some data
 bot = IrcBot(server, port, nick, name, admin_nicks)
@@ -46,6 +46,7 @@ while bot.search_history("Logon News") is not True:
 # Connect to your chat room(s)
 for room in chat_rooms:
     bot.join(room)
+    time.sleep(15)
 
 #====MAIN LOOP====#
 while 1:
