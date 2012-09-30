@@ -40,7 +40,7 @@ class IrcBot(object):
         self.__irc = None
         self.__channels = []
         self.__history = []
-        self.__greetings = ["hello", "hi", "sup", "g'day", "morning", "evening", "mornin'", "evenin'", "afternoon"]
+        self.__greetings = ["Hello", "Hi", "Sup", "G'day", "Morning", "Evening", "Mornin'", "Evenin'", "Afternoon"]
 
     def channel_list(self):
         return self.__channels
@@ -152,6 +152,12 @@ class IrcBot(object):
     def _get_sender_nick(self, line):
         return line[1:line.find("!")]
 
+    def cmd_list(self, chat_room):
+        self.send_message(chat_room, "Okay, here's what I can do:")
+        self.send_message(chat_room, "1. !math - Type !math [operand] [operator] [operand] and"
+                                     " I'll print the result! No brackets or fancy stuff please.")
+        self.send_message(chat_room, "Well, I guess that's it for now actually.")
+
     def _dialogue(self, line):
         """
         Accepts a line from the chat that contains PRIVMSG. This means that there should
@@ -159,7 +165,8 @@ class IrcBot(object):
         This method contains a lot of logic, thus it is broken out from check_commands
         """
         chat_nick = self._get_sender_nick(line)
-        chat_room = line.split(' ')[2]
+        chat_string = line.split(" ")
+        chat_room = chat_string[2]
 
         if "#" not in chat_room:
             # private messaging, check what they want us to do
@@ -169,7 +176,7 @@ class IrcBot(object):
                     self.send_message(chat_nick, "Admins are: %s" % " / ".join(self.master))
                 elif "!add_admin" in line:
                     # this commands syntax: !add_admin [admin_nick]
-                    new_admin = line.split(' ')[4]
+                    new_admin = chat_string[4]
                     if new_admin not in self.master:
                         self.master.append(new_admin)
                         self.send_message(chat_nick, "%s is now an administrator" % new_admin)
@@ -186,6 +193,8 @@ class IrcBot(object):
                     self.quit(chat_room, "I've been ordered out!")
                 else:
                     self.deny_command(chat_room, chat_nick)
+            elif ":!cmds" in line:
+                self.cmd_list(chat_room)
             elif ":!quit" in line:
                 if chat_nick in self.master:
                     self.send_message(chat_room, "Yes %s, I will leave %s" % (chat_nick, chat_room))
@@ -193,18 +202,27 @@ class IrcBot(object):
                 else:
                     self.deny_command(chat_room, chat_nick)
             elif ":!math" in line:
-                self.send_message(chat_room, self.do_math(line))
-            elif line.split(" ")[1] is "JOIN":
+                message = ""
+                try:
+                    message = self.do_math(line)
+                except ZeroDivisionError:
+                    message = "Ha, you wanted me to divide by zero didn't you!"
+                except ValueError:
+                    message = "I can only accept numeric input (obviously)"
+                self.send_message(chat_room, message)
+            elif chat_string[1] == "JOIN":
                 if chat_nick is self.nick:
-                    self.send_message(chat_room, "Greetings all, I am here!")
+                    self.send_message(chat_room[2:], "Greetings all, I am here!")
                 else:
-                    self.send_message(chat_room, "Greetings %s and welcome to the %s channel!" % (chat_nick, chat_room[1:]))
+                    self.send_message(chat_room[2:], "Greetings %s and welcome to the %s channel!" % (chat_nick, chat_room[2:]))
+            elif chat_string[1] == "PART":
+                self.send_message(chat_room, "See you later, %s" % chat_nick)
             elif self.nick.lower() in line.lower():
                 #If they are addressing the bot, try to do something
                 for greeting in self.__greetings:
-                    if greeting in line:
+                    if greeting.lower() in line.lower():
                         #TODO: Randomize the greetings
-                        self.send_message(chat_room, "Hello to you to, %s" % chat_nick)
+                        self.send_message(chat_room, "Hello to you too, %s" % chat_nick)
                         break
                 #TODO: Add farewells!!
 
@@ -212,7 +230,7 @@ class IrcBot(object):
         """
         do_math expects a command like !math [operand] [operator] [operand], ex: !math 2 * 2
         """
-        chat_nick = self._get_sender_nick(line)
+#        chat_nick = self._get_sender_nick(line)
         operand1 = float(line.split(" ")[4])
         operator = line.split(" ")[5]
         operand2 = float(line.split(" ")[6])
@@ -220,10 +238,7 @@ class IrcBot(object):
         if operator is "*" or operator is "x":
             result = operand1 * operand2
         elif operator is "/" or operator is "\\":
-            if operand2 is not 0:
-                result = operand1 / operand2
-            else:
-                return "Ha, as if I'm going to divide by zero for you, %s!" % chat_nick
+            result = operand1 / operand2
         elif operator is "+":
             result = operand1 + operand2
         elif operator is "-":
@@ -277,6 +292,8 @@ class IrcBot(object):
         and returns it to the calling party.
         """
         data = self.__receive_data(buffer_size)
+        while "\r\n" not in data:
+            data += self.__receive_data(buffer_size)
         return data.strip('\r\n')
 
 # Set up your connection
@@ -319,7 +336,7 @@ while 1:
     #if length is 0 we got disconnected
     if data.__len__ == 0:
         break
-        #Check to see if there's anything we can do with it :)
+    #Check to see if there's anything we can do with it :)
     bot.check_commands(data)
 
 # Disconnect for good
