@@ -336,7 +336,7 @@ while 1:
     #Receive data from the irc socket
     data = bot.get_data(buffer_size)
     #if length is 0 we got disconnected
-    if data.__len__ == 0:
+    if len(data) == 0:
         break
     #Check to see if there's anything we can do with it :)
     bot.check_commands(data)
